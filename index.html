@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 禁止缓存 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
+    <title>案场访客数据中心</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- 引入 Chart.js 用于绘制统计图表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary: #1e3a8a; /* 深蓝 */
+            --accent: #d97706;  /* 金色 */
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); min-height: 100vh; color: var(--text-main); font-size: 14px; }
+        
+        .page { display: none; max-width: 600px; margin: 0 auto; min-height: 100vh; background: #fff; position: relative; padding-bottom: 60px; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 头部设计 */
+        .header { padding: 30px 20px 20px; color: white; text-align: center; position: relative; overflow: hidden; }
+        .header::after { content: ''; position: absolute; bottom: -20px; left: 0; right: 0; height: 40px; background: #fff; border-radius: 50% 50% 0 0 / 100% 100% 0 0; transform: scaleX(1.5); }
+        .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 5px; letter-spacing: 1px; }
+        .header p { font-size: 13px; opacity: 0.9; font-weight: 300; }
+        .theme-admin .header { background: linear-gradient(135deg, #334155 0%, #0f172a 100%); }
+        .theme-visit .header { background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%); }
+
+        /* 表单样式 */
+        .form-container { padding: 25px 20px; }
+        .form-group { margin-bottom: 25px; }
+        .form-label { display: block; font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 12px; border-left: 4px solid var(--accent); padding-left: 10px; }
+        .required { color: #ef4444; margin-right: 4px; }
+        
+        .input-field { width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 15px; background: #f8fafc; transition: all 0.2s; }
+        .input-field:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1); }
+
+        .radio-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .radio-item input { display: none; }
+        .radio-item label { display: block; padding: 12px; background: #f1f5f9; border: 2px solid transparent; border-radius: 10px; text-align: center; cursor: pointer; font-weight: 500; color: var(--text-sub); transition: all 0.2s; }
+        .radio-item input:checked + label { background: #eff6ff; border-color: var(--primary); color: var(--primary); font-weight: 600; }
+
+        .submit-btn { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3); transition: transform 0.1s; }
+        .submit-btn:active { transform: scale(0.98); }
+
+        /* 管理后台样式 */
+        .admin-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 20px; }
+        .nav-card { background: #fff; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .nav-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+        .nav-icon { font-size: 32px; margin-bottom: 10px; display: block; }
+        .nav-title { font-weight: 600; color: var(--text-main); }
+
+        /* 数据看板样式 */
+        .dashboard-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 20px; background: #fff; margin-bottom: 10px; }
+        .stat-box { text-align: center; padding: 10px; background: #f8fafc; border-radius: 8px; }
+        .stat-num { font-size: 20px; font-weight: 800; color: var(--primary); }
+        .stat-desc { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+
+        .chart-container { padding: 20px; background: #fff; margin-bottom: 10px; }
+        .chart-title { font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-main); border-left: 4px solid var(--primary); padding-left: 10px; }
+
+        .rank-list { padding: 0 20px 20px; }
+        .rank-item { display: flex; align-items: center; padding: 15px; background: #fff; border-bottom: 1px solid #f1f5f9; }
+        .rank-badge { width: 28px; height: 28px; border-radius: 50%; background: #e2e8f0; color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; font-size: 13px; }
+        .rank-badge.top { background: var(--accent); color: white; }
+        .rank-info { flex: 1; }
+        .rank-name { font-weight: 600; color: var(--text-main); font-size: 15px; }
+        .rank-detail { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+        .rank-score { font-weight: 700; color: #059669; font-size: 16px; }
+
+        .record-list { padding: 0 20px; }
+        .record-card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; position: relative; }
+        .rc-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; color: #94a3b8; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px; }
+        .rc-row { display: flex; margin-bottom: 6px; font-size: 13px; }
+        .rc-label { color: #64748b; width: 70px; flex-shrink: 0; }
+        .rc-val { color: var(--text-main); font-weight: 500; flex: 1; }
+        .tag { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .tag-good { background: #dcfce7; color: #166534; }
+        .tag-bad { background: #fee2e2; color: #991b1b; }
+
+        .action-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px; background: #fff; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: center; max-width: 600px; margin: 0 auto; z-index: 100; }
+        .btn-sm { padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: var(--text-sub); font-size: 13px; cursor: pointer; }
+        .btn-danger { color: #ef4444; border-color: #fecaca; }
+
+        /* 弹窗 */
+        .modal-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+        .modal-box { background: #fff; padding: 30px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 管理首页 -->
+    <div class="page active theme-admin" id="page-admin">
+        <div class="header">
+            <h1>🛠️ 案场系统配置中心</h1>
+            <p>请打印下方二维码放置于对应位置</p>
+        </div>
+        <div style="padding: 20px;">
+            <div class="admin-nav">
+                <div class="nav-card" onclick="showQR('visit-fill')">
+                    <span class="nav-icon">📝</span>
+                    <div class="nav-title">访客登记码</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:5px;">放置于入口/沙盘</div>
+                </div>
+                <div class="nav-card" onclick="showPage('visit-view')">
+                    <span class="nav-icon">📊</span>
+                    <div class="nav-title">数据看板</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:5px;">领导/运维查看</div>
+                </div>
+            </div>
+            <div id="qr-display-area" style="text-align:center; margin-top:20px; display:none;">
+                <div style="background:#fff; padding:15px; border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                    <div id="qr-target"></div>
+                    <p style="margin-top:10px; font-size:12px; color:#666;">微信扫码进入</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 访客登记端 -->
+    <div class="page theme-visit" id="page-visit-fill">
+        <div class="header">
+            <h1>🏠 尊享访客登记</h1>
+            <p>您的反馈是我们进步的动力</p>
+        </div>
+        <div class="form-container">
+            <div class="form-group">
+                <label class="form-label"><span class="required">*</span> 接待销售顾问</label>
+                <input type="text" class="input-field" id="v-sales" placeholder="请输入姓名或工号">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label"><span class="required">*</span> 您目前的居住地距离</label>
+                <div class="radio-grid">
+                    <div class="radio-item"><input type="radio" name="dist" id="d1" value="1km内"><label for="d1">1km内 (近)</label></div>
+                    <div class="radio-item"><input type="radio" name="dist" id="d2" value="1-3km"><label for="d2">1-3km (中)</label></div>
+                    <div class="radio-item"><input type="radio" name="dist" id="d3" value="3-5km"><label for="d3">3-5km (远)</label></div>
+                    <div class="radio-item"><input type="radio" name="dist" id="d4" value="5km以上"><label for="d4">5km以上 (很远)</label></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label"><span class="required">*</span> 对接待服务满意度</label>
+                <div class="radio-grid">
+                    <div class="radio-item"><input type="radio" name="sat" id="s1" value="非常满意"><label for="s1">😄 非常满意</label></div>
+                    <div class="radio-item"><input type="radio" name="sat" id="s2" value="满意"><label for="s2">🙂 满意</label></div>
+                    <div class="radio-item"><input type="radio" name="sat" id="s3" value="一般"><label for="s3">😐 一般</label></div>
+                    <div class="radio-item"><input type="radio" name="sat" id="s4" value="不满意"><label for="s4">😡 不满意</label></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label"><span class="required">*</span> 高优意向学校</label>
+                <div class="radio-grid">
+                    <div class="radio-item"><input type="radio" name="sch" id="sc1" value="幼儿园"><label for="sc1">🎒 幼儿园</label></div>
+                    <div class="radio-item"><input type="radio" name="sch" id="sc2" value="小学"><label for="sc2">🏫 小学</label></div>
+                    <div class="radio-item"><input type="radio" name="sch" id="sc3" value="初中"><label for="sc3">📚 初中</label></div>
+                    <div class="radio-item"><input type="radio" name="sch" id="sc4" value="暂无"><label for="sc4">🚫 暂无需求</label></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">其他建议或评价</label>
+                <textarea class="input-field" id="v-eval" rows="3" placeholder="选填：您对楼盘的感受..."></textarea>
+            </div>
+            
+            <button class="submit-btn" onclick="submitVisit()">✅ 提交反馈</button>
+        </div>
+    </div>
+
+    <!-- 3. 访客数据看板 (领导/运维) -->
+    <div class="page theme-visit" id="page-visit-view">
+        <div class="header">
+            <h1>📈 案场数据驾驶舱</h1>
+            <p>实时洞察客户画像与销售表现</p>
+        </div>
+        
+        <!-- 核心指标 -->
+        <div class="dashboard-stats">
+            <div class="stat-box">
+                <div class="stat-num" id="stat-total">0</div>
+                <div class="stat-desc">今日访客</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-num" id="stat-rate" style="color:#059669">0%</div>
+                <div class="stat-desc">满意率</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-num" id="stat-school">-</div>
+                <div class="stat-desc">最热学校</div>
+            </div>
+        </div>
+
+        <!-- 图表区 -->
+        <div class="chart-container">
+            <div class="chart-title">🏆 销售顾问满意度红黑榜</div>
+            <canvas id="salesChart" height="200"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">🏫 意向学校分布</div>
+            <canvas id="schoolChart" height="150"></canvas>
+        </div>
+
+        <!-- 详细列表 -->
+        <div style="padding: 0 20px 10px; font-weight:600; color:var(--text-main);">📋 详细来访记录</div>
+        <div class="record-list" id="visit-record-list"></div>
+
+        <!-- 底部操作栏 -->
+        <div class="action-bar">
+            <button class="btn-sm" onclick="exportData()">📥 导出数据</button>
+            <button class="btn-sm btn-danger" onclick="clearAllData()">🗑️ 清空所有数据</button>
+        </div>
+    </div>
+
+    <!-- 成功弹窗 -->
+    <div class="modal-mask" id="success-modal">
+        <div class="modal-box">
+            <div style="font-size: 50px; margin-bottom: 10px;">🎉</div>
+            <h3 style="margin-bottom: 10px;">提交成功！</h3>
+            <p style="color:#666; font-size:14px;">感谢您的宝贵时间<br>祝您生活愉快</p>
+            <button class="submit-btn" style="margin-top:20px; padding:10px;" onclick="closeModal()">关闭</button>
+        </div>
+    </div>
+
+    <script>
+        // ================= 核心逻辑 =================
+        
+        // 初始化
+        function init() {
+            checkHash();
+        }
+
+        // 路由控制
+        function checkHash() {
+            const hash = window.location.hash.replace('#', '');
+            if (hash === 'visit-fill') showPage('visit-fill');
+            else if (hash === 'visit-view') showPage('visit-view');
+            else showPage('admin');
+        }
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            window.location.hash = pageId === 'admin' ? '' : pageId;
+            
+            if (pageId === 'visit-view') loadDashboard();
+        }
+
+        // 生成二维码
+        function showQR(type) {
+            const area = document.getElementById('qr-display-area');
+            const target = document.getElementById('qr-target');
+            target.innerHTML = ''; // 清空旧二维码
+            area.style.display = 'block';
+            
+            const base = window.location.href.split('#')[0];
+            new QRCode(target, { 
+                text: base + '#' + type, 
+                width: 150, 
+                height: 150,
+                colorDark : "#1e3a8a",
+                colorLight : "#ffffff"
+            });
+        }
+
+        // ================= 访客提交逻辑 =================
+        function submitVisit() {
+            const sales = document.getElementById('v-sales').value.trim();
+            const dist = document.querySelector('input[name="dist"]:checked')?.value;
+            const sat = document.querySelector('input[name="sat"]:checked')?.value;
+            const school = document.querySelector('input[name="sch"]:checked')?.value;
+            const evalText = document.getElementById('v-eval').value.trim();
+
+            if (!sales || !dist || !sat || !school) {
+                alert('请完善所有必填项（带*号）');
+                return;
+            }
+
+            // 构建数据对象
+            const record = {
+                id: Date.now(),
+                timestamp: new Date().getTime(),
+                dateStr: new Date().toLocaleDateString('zh-CN'),
+                timeStr: new Date().toLocaleTimeString('zh-CN', {hour12:false, hour:'2-digit', minute:'2-digit'}),
+                sales, dist, sat, school, eval: evalText || '无'
+            };
+
+            // 获取旧数据 -> 追加新数据 -> 存回
+            let db = JSON.parse(localStorage.getItem('visit_db_v2') || '[]');
+            db.unshift(record); // 最新数据放前面
+            localStorage.setItem('visit_db_v2', JSON.stringify(db));
+
+            // 显示成功并重置
+            document.getElementById('success-modal').style.display = 'flex';
+            
+            // 重置表单
+            document.getElementById('v-sales').value = '';
+            document.getElementById('v-eval').value = '';
+            document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+        }
+
+        function closeModal() {
+            document.getElementById('success-modal').style.display = 'none';
+        }
+
+        // ================= 数据看板逻辑 =================
+        let salesChartInstance = null;
+        let schoolChartInstance = null;
+
+        function loadDashboard() {
+            const db = JSON.parse(localStorage.getItem('visit_db_v2') || '[]');
+            const today = new Date().toLocaleDateString('zh-CN');
+            const todayDb = db.filter(r => r.dateStr === today);
+
+            // 1. 基础统计
+            document.getElementById('stat-total').innerText = todayDb.length;
+            
+            const goodCount = todayDb.filter(r => r.sat === '非常满意' || r.sat === '满意').length;
+            const rate = todayDb.length > 0 ? Math.round((goodCount / todayDb.length) * 100) : 0;
+            document.getElementById('stat-rate').innerText = rate + '%';
+
+            // 计算最热学校
+            const schoolCounts = {};
+            todayDb.forEach(r => { schoolCounts[r.school] = (schoolCounts[r.school] || 0) + 1; });
+            const topSchool = Object.keys(schoolCounts).sort((a,b) => schoolCounts[b] - schoolCounts[a])[0] || '-';
+            document.getElementById('stat-school').innerText = topSchool;
+
+            // 2. 渲染列表
+            renderRecordList(todayDb);
+
+            // 3. 渲染图表
+            renderCharts(todayDb);
+        }
+
+        function renderRecordList(data) {
+            const listEl = document.getElementById('visit-record-list');
+            if (data.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;">今日暂无数据</div>';
+                return;
+            }
+
+            listEl.innerHTML = data.map(r => {
+                const isGood = r.sat.includes('满意');
+                const tagClass = isGood ? 'tag-good' : 'tag-bad';
+                return `
+                <div class="record-card">
+                    <div class="rc-header">
+                        <span>👤 ${r.sales}</span>
+                        <span>🕒 ${r.timeStr}</span>
+                    </div>
+                    <div class="rc-row">
+                        <span class="rc-label">满意度：</span>
+                        <span class="rc-val"><span class="tag ${tagClass}">${r.sat}</span></span>
+                    </div>
+                    <div class="rc-row">
+                        <span class="rc-label">居住地：</span>
+                        <span class="rc-val">${r.dist}</span>
+                    </div>
+                    <div class="rc-row">
+                        <span class="rc-label">意向校：</span>
+                        <span class="rc-val">${r.school}</span>
+                    </div>
+                    ${r.eval !== '无' ? `<div style="margin-top:8px; padding:8px; background:#f8fafc; border-radius:6px; font-size:12px; color:#475569;">💬 ${r.eval}</div>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function renderCharts(data) {
+            // 准备销售排名数据
+            const salesStats = {};
+            data.forEach(r => {
+                if (!salesStats[r.sales]) salesStats[r.sales] = { total: 0, good: 0 };
+                salesStats[r.sales].total++;
+                if (r.sat === '非常满意' || r.sat === '满意') salesStats[r.sales].good++;
+            });
+            
+            // 转换为数组并排序
+            const sortedSales = Object.keys(salesStats).map(name => ({
+                name,
+                score: salesStats[name].good,
+                total: salesStats[name].total
+            })).sort((a, b) => b.score - a.score);
+
+            // 销毁旧图表
+            if (salesChartInstance) salesChartInstance.destroy();
+            if (schoolChartInstance) schoolChartInstance.destroy();
+
+            // 1. 销售柱状图
+            const ctxSales = document.getElementById('salesChart').getContext('2d');
+            salesChartInstance = new Chart(ctxSales, {
+                type: 'bar',
+                data: {
+                    labels: sortedSales.map(s => s.name),
+                    datasets: [{
+                        label: '好评数',
+                        data: sortedSales.map(s => s.score),
+                        backgroundColor: '#1e3a8a',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+
+            // 2. 学校饼图
+            const schoolCounts = {};
+            data.forEach(r => { schoolCounts[r.school] = (schoolCounts[r.school] || 0) + 1; });
+            
+            const ctxSchool = document.getElementById('schoolChart').getContext('2d');
+            schoolChartInstance = new Chart(ctxSchool, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(schoolCounts),
+                    datasets: [{
+                        data: Object.values(schoolCounts),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    cutout: '60%',
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } }
+                }
+            });
+        }
+
+        // ================= 运维工具 =================
+        function exportData() {
+            const db = localStorage.getItem('visit_db_v2');
+            if (!db) { alert('暂无数据可导出'); return; }
+            
+            const blob = new Blob([db], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `visit_data_${new Date().toLocaleDateString()}.json`;
+            a.click();
+        }
+
+        function clearAllData() {
+            if(confirm('⚠️ 警告：此操作将永久删除所有访客记录！确定继续吗？')) {
+                localStorage.removeItem('visit_db_v2');
+                loadDashboard();
+                alert('数据已清空');
+            }
+        }
+
+        // 启动
+        init();
+    </script>
+</body>
+</html>
